@@ -1,0 +1,9 @@
+-r requirements.txt
+
+pytest==9.1.1
+pytest-asyncio==1.4.0
+
+black==25.9.0
+isort==6.1.0
+pre-commit
+yamllint==1.37.1
