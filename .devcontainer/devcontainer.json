@@ -1,0 +1,20 @@
+{
+    "name": "Boarding pass service",
+    "service": "server",
+    "workspaceFolder": "/workspace",
+    "dockerComposeFile": "docker-compose.yml",
+    "forwardPorts": [8000],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-azuretools.vscode-docker"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.testing.pytestEnabled": true
+            }
+        }
+    },
+    "postStartCommand": "pip install -r requirements-dev.txt"
+}

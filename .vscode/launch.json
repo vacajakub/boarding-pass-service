@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "boarding pass server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "boarding_pass_service.main",
+            "justMyCode": false,
+            "env": {
+                "CONFFILE": "${workspaceFolder}/conf/boarding-pass-service.env"
+            }
+        },
+        {
+            "name": "boarding pass server - unit tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "justMyCode": false,
+            "args": ["tests/unit"],
+            "env": {
+                "CONFFILE": "${workspaceFolder}/conf/boarding-pass-service.env"
+            }
+        }
+    ]
+}
