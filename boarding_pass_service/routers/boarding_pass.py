@@ -38,7 +38,7 @@ async def parse_from_file(
     data = await file.read()
     if len(data) > settings.max_upload_size_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"File is larger than the {settings.max_upload_size_bytes} B limit",
         )
 
@@ -56,11 +56,11 @@ async def parse_from_file(
         bcbp = decode_barcode(payload)
     except BarcodeNotFoundError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No PDF417 boarding pass barcode found in the PDF"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="No PDF417 boarding pass barcode found in the PDF"
         ) from e
     except InvalidBcbpError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Barcode does not contain valid BCBP data"
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Barcode does not contain valid BCBP data"
         ) from e
     except HTTPException:
         raise

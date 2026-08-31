@@ -1,4 +1,9 @@
-from tests.data import SAMPLE_PDF_PATH, sample_pdf_bytes
+from tests.data import NO_BARCODE_PDF_PATH, RETURN_PDF_PATH, SAMPLE_PDF_PATH
+from tests.multi_leg import multi_leg_payload
+
+from boarding_pass_service.bcbp_utils import boarding_pass_from_decoded, decode_barcode, to_decoded_bcbp
+from boarding_pass_service.dao.crud import insert_boarding_pass
+from boarding_pass_service.main import app
 
 EXPECTED_DECODED_BCBP = {
     "passenger_name": "CYPRIAN/MICHAL",
@@ -28,12 +33,16 @@ EXPECTED_DECODED_BCBP = {
 }
 
 
-def parse_sample(test_app):
-    with SAMPLE_PDF_PATH.open("rb") as file:
+def post_pdf(test_app, path):
+    with path.open("rb") as file:
         return test_app.post(
             "/boarding-pass/parse-from-file",
-            files={"file": ("boarding_pass.pdf", file, "application/pdf")},
+            files={"file": (path.name, file, "application/pdf")},
         )
+
+
+def parse_sample(test_app):
+    return post_pdf(test_app, SAMPLE_PDF_PATH)
 
 
 def test_liveness(test_app):
@@ -63,13 +72,11 @@ def test_parse_from_file_rejects_non_pdf(test_app):
 
 
 def test_parse_from_file_rejects_pdf_without_barcode(test_app):
-    # a truncated but still pdf-looking file, no readable PDF417 in it
-    response = test_app.post(
-        "/boarding-pass/parse-from-file",
-        files={"file": ("empty.pdf", sample_pdf_bytes()[:200], "application/pdf")},
-    )
+    # a perfectly valid PDF that simply is not a boarding pass
+    response = post_pdf(test_app, NO_BARCODE_PDF_PATH)
 
-    assert response.status_code in (422, 500)
+    assert response.status_code == 422
+    assert "PDF417" in response.json()["detail"]
 
 
 def test_list_boarding_passes(test_app):
@@ -140,3 +147,87 @@ def test_list_boarding_passes_pagination(test_app):
 def test_list_boarding_passes_validates_params(test_app):
     assert test_app.get("/boarding-passes", params={"limit": 0}).status_code == 422
     assert test_app.get("/boarding-passes", params={"offset": -1}).status_code == 422
+
+
+# --- a return journey: two boarding passes in one PDF, only the first is processed --------------
+
+
+def test_parse_return_pdf_uses_only_the_first_pass(test_app):
+    response = post_pdf(test_app, RETURN_PDF_PATH)
+
+    assert response.status_code == 200
+    decoded = response.json()["decoded_bcbp"]
+
+    # the outbound, from the first page
+    assert decoded["passenger_name"] == "VACA/JAKUB"
+    assert len(decoded["legs"]) == 1
+    leg = decoded["legs"][0]
+    assert (leg["origin"]["code"], leg["destination"]["code"]) == ("PRG", "BFS")
+    assert leg["flight_number"] == "3092"
+    # the carrier leaves the compartment code blank, the mapping does not guess
+    assert leg["cabin_class"] == "unknown"
+
+
+def test_parse_return_pdf_stores_only_the_first_pass(test_app):
+    assert post_pdf(test_app, RETURN_PDF_PATH).status_code == 200
+
+    body = test_app.get("/boarding-passes").json()
+
+    # the return leg on page two is read and logged, but deliberately not stored
+    assert body["total"] == 1
+    assert body["items"][0]["decoded_bcbp"]["legs"][0]["destination"]["code"] == "BFS"
+
+
+# --- multiple legs ------------------------------------------------------------------------------
+# The sample PDFs are all single leg, so the pass is stored through the DAO directly. This is the
+# only way to reach leg ordering and the "any leg" airline filter.
+
+
+def store_multi_leg(test_app):
+    async def store():
+        decoded = to_decoded_bcbp(decode_barcode(multi_leg_payload()), {})
+        await insert_boarding_pass(app.state.session_master, boarding_pass_from_decoded(decoded, multi_leg_payload()))
+
+    test_app.portal.call(store)
+
+
+def test_multi_leg_pass_is_listed_with_legs_in_order(test_app):
+    store_multi_leg(test_app)
+
+    body = test_app.get("/boarding-passes").json()
+
+    assert body["total"] == 1
+    legs = body["items"][0]["decoded_bcbp"]["legs"]
+    assert len(legs) == 2
+    assert [leg["airline_code"] for leg in legs] == ["FR", "BA"]
+    assert [(leg["origin"]["code"], leg["destination"]["code"]) for leg in legs] == [
+        ("KSC", "PRG"),
+        ("PRG", "LHR"),
+    ]
+    assert [leg["cabin_class"] for leg in legs] == ["economy", "business"]
+
+
+def test_airline_code_filter_matches_any_leg(test_app):
+    store_multi_leg(test_app)
+
+    # the first leg
+    assert test_app.get("/boarding-passes", params={"airline_code": "FR"}).json()["total"] == 1
+    # and the second one - this is what the separate legs table is for
+    assert test_app.get("/boarding-passes", params={"airline_code": "BA"}).json()["total"] == 1
+    # a carrier on neither leg
+    assert test_app.get("/boarding-passes", params={"airline_code": "LH"}).json()["total"] == 0
+
+
+def test_filters_combine_across_passenger_and_any_leg(test_app):
+    store_multi_leg(test_app)
+    assert parse_sample(test_app).status_code == 200
+
+    # two passes stored, only the multi leg one flies BA
+    assert test_app.get("/boarding-passes").json()["total"] == 2
+    assert test_app.get("/boarding-passes", params={"airline_code": "BA"}).json()["total"] == 1
+    # FR is the first leg of the multi leg pass and the only leg of the sample
+    assert test_app.get("/boarding-passes", params={"airline_code": "FR"}).json()["total"] == 2
+    assert (
+        test_app.get("/boarding-passes", params={"passenger_name": "cyprian", "airline_code": "BA"}).json()["total"]
+        == 1
+    )

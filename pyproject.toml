@@ -20,3 +20,21 @@ known_local_folder = ["boarding_pass_service"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "--cov=boarding_pass_service --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["boarding_pass_service"]
+branch = true
+# SQLAlchemy's async layer hands control between greenlets, and without this coverage loses the
+# last line of any coroutine that returns out of an `async with session_factory()` block
+concurrency = ["thread", "greenlet"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# the suite has to actually run against a database to reach this, tests/unit alone will not
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

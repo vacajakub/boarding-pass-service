@@ -127,6 +127,24 @@ Unit tests need neither the database nor the network:
 .venv/bin/python -m pytest tests/unit -v
 ```
 
+Coverage is reported on every run (`--cov` is in the pytest config) and the suite fails below 90%.
+The full suite sits around 99%; what is left uncovered is defensive branches. Note that
+`tests/unit` alone cannot reach the handlers, so run the whole suite before reading the number.
+
+Test data in `test_data/`:
+
+| file | what it is for |
+| --- | --- |
+| `boarding_pass.pdf` | one page, one single-leg pass - the happy path |
+| `Boarding_Pass_and_return.pdf` | two pages, outbound and return as two separate passes - only the first is processed |
+| `sample_not_boarding_pass.pdf` | a valid PDF with no barcode on it - rejected with 422 |
+
+A multi-leg pass (a through-checked connection, one barcode covering several flights) is not among
+them, because none of the sample PDFs has one. `tests/multi_leg.py` encodes one with the same
+library that decodes it - multi-leg strings copied out of the implementation guide are routinely
+mis-transcribed, and the conditional section lengths then drift so every later field decodes into
+garbage.
+
 The whole suite, unit and integration, runs against a real Postgres in docker:
 
 ```sh

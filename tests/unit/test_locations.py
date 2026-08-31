@@ -88,3 +88,18 @@ async def test_resolve_ignores_empty_codes():
         raise AssertionError("should not be called")
 
     assert await make_client(handler).resolve([None, ""]) == {}
+
+
+async def test_resolve_cache_expires():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.params["id"])
+        return httpx.Response(200, json=PRG_RESPONSE)
+
+    # ttl of zero, so the entry is already stale by the time it is looked up again
+    client = LocationsClient(API_URL, httpx.AsyncClient(transport=httpx.MockTransport(handler)), cache_ttl_seconds=0)
+    await client.resolve(["PRG"])
+    await client.resolve(["PRG"])
+
+    assert calls == ["PRG", "PRG"]
