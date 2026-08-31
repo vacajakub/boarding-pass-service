@@ -38,10 +38,7 @@ def is_pdf(content_type: Optional[str], data: bytes) -> bool:
 
 
 def read_pdf417_payloads(pdf_data: bytes, scale: float) -> List[str]:
-    """Render every page and read the PDF417 barcodes off it.
-
-    CPU bound and blocking, has to be called from a thread pool, never directly on the event loop.
-    """
+    """Render every page and read the PDF417 barcodes off it."""
     payloads: List[str] = []
     pdf = pdfium.PdfDocument(pdf_data)
     try:

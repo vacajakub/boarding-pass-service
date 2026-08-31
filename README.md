@@ -127,6 +127,12 @@ Unit tests need neither the database nor the network:
 .venv/bin/python -m pytest tests/unit -v
 ```
 
+No test talks to anything outside the machine it runs on. The locations API is fed canned
+responses through `httpx.MockTransport` in the unit tests and swapped out via
+`dependency_overrides` in the integration ones, and `tests/conftest.py` enforces that with a
+session-wide guard: any lookup of a host other than loopback or the database fails the test with an
+explanation. So a slow, rate limiting or unreachable third party can never turn the pipeline red.
+
 Coverage is reported on every run (`--cov` is in the pytest config) and the suite fails below 90%.
 The full suite sits around 99%; what is left uncovered is defensive branches. Note that
 `tests/unit` alone cannot reach the handlers, so run the whole suite before reading the number.

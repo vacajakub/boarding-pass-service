@@ -26,7 +26,7 @@ def create_db_engine(settings: BaseSettings, read_only: bool = False) -> AsyncEn
         get_db_url(settings, read_only),
         echo=settings.db_echo,
         pool_pre_ping=True,
-        # sized deliberately, see the connection budget in config.py
+        # sized deliberately to avoid exhausting the db connection limit with many concurrent requests
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         pool_timeout=settings.db_pool_timeout,
@@ -63,8 +63,7 @@ class AppState(State):
             self.settings.locations_api_url, self.http_client, self.settings.locations_cache_ttl_seconds
         )
 
-        # if we were to set up a broker, we would do it here
-        # also here we could set up logging levels, etc.
+        # here we could set up logging levels, etc.
 
     async def teardown(self):
         await self.http_client.aclose()

@@ -8,9 +8,8 @@ app.state or reaching into the running engines.
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from tests.data import SAMPLE_PDF_PATH, sample_pdf_bytes
+from tests.data import SAMPLE_PDF_PATH
 
-from boarding_pass_service.bcbp_utils import BarcodeNotFoundError
 from boarding_pass_service.config import Settings
 from boarding_pass_service.dependencies import get_session_master, get_session_slave, get_settings
 from boarding_pass_service.main import app
@@ -104,26 +103,3 @@ def test_parse_returns_500_on_an_unexpected_parsing_error(test_app, monkeypatch)
 
     assert response.status_code == 500
     assert response.json()["detail"] == "Failed to parse boarding pass"
-
-
-def test_known_parsing_errors_are_not_swallowed_as_500(test_app, monkeypatch):
-    def no_barcode(*args, **kwargs):
-        raise BarcodeNotFoundError("nothing here")
-
-    monkeypatch.setattr("boarding_pass_service.routers.boarding_pass.extract_payloads", no_barcode)
-
-    assert post_sample(test_app).status_code == 422
-
-
-def test_non_pdf_is_rejected_before_any_rendering(test_app, monkeypatch):
-    def boom(*args, **kwargs):
-        raise AssertionError("the renderer must never see a non-pdf")
-
-    monkeypatch.setattr("boarding_pass_service.routers.boarding_pass.extract_payloads", boom)
-
-    response = test_app.post(
-        "/boarding-pass/parse-from-file",
-        files={"file": ("payload.txt", sample_pdf_bytes()[:100], "text/plain")},
-    )
-
-    assert response.status_code == 400

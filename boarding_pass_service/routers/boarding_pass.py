@@ -36,6 +36,8 @@ async def parse_from_file(
     db: SessionMaster,
 ) -> ParseBoardingPassResponse:
     data = await file.read()
+
+    # safety check
     if len(data) > settings.max_upload_size_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,

@@ -19,12 +19,7 @@ class Settings(BaseSettings):
     db_app_name: str = "boarding_pass"
     db_echo: bool = False
 
-    # Connection budget, per engine. There are two engines (master, slave) in every worker, so the
-    # ceiling is workers * 2 * (db_pool_size + db_max_overflow) and it has to stay under the
-    # max_connections of the server, minus what is reserved for superusers and for the odd psql
-    # session. With the 8 workers from conf/gunicorn.conf.py and postgres defaulting to 100:
-    #     8 * 2 * (3 + 2) = 80
-    # Raise these together with max_connections, or put a pgbouncer in front and raise them a lot.
+    # Pooling config, we have multiple workers but currently no pgbouncer in front so be careful not to exhaust the connection budget
     db_pool_size: int = 3
     db_max_overflow: int = 2
     # fail fast instead of piling up requests waiting for a connection that is not coming
@@ -38,7 +33,7 @@ class Settings(BaseSettings):
     locations_cache_ttl_seconds: int = 86400
 
     # uploads - keep a hard cap so a huge file cannot eat all the memory of the worker
-    max_upload_size_bytes: int = 10 * 1024 * 1024
+    max_upload_size_bytes: int = 100 * 1024 * 1024
     # scale of the page render handed to the barcode reader, 1.0 == 72 DPI
     pdf_render_scale: float = 3.0
     # second, more expensive attempt for pages where nothing was decoded on the first pass
