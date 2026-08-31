@@ -24,7 +24,7 @@ async def list_boarding_passes(
 ) -> Tuple[List[BoardingPass], int]:
     filters = []
     if passenger_name:
-        # case insensitive substring match
+        # case-insensitive substring match
         filters.append(BoardingPass.passenger_name.ilike(f"%{passenger_name}%"))
     if airline_code:
         # exact match on the airline code of any leg of the boarding pass

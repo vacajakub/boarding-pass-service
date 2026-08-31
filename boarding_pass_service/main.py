@@ -23,7 +23,8 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down")
-    # don't forget to close pools and clients :)
+
+    # don't forget to close pools and clients
     await app.state.teardown()
     logger.info("Shutdown end")
 
@@ -35,7 +36,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.state = AppState()
-# this would be a Flask blueprints - basically the same
 app.include_router(boarding_pass.router)
 app.include_router(internal.router)
 

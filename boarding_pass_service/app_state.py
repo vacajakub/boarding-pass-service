@@ -7,6 +7,7 @@ from starlette.datastructures import State
 
 from boarding_pass_service.config import get_settings
 from boarding_pass_service.locations import LocationsClient
+from boarding_pass_service.models import SCHEMA
 
 logger = logging.getLogger("boarding-pass-service.app_state")
 
@@ -26,7 +27,7 @@ def create_db_engine(settings: BaseSettings, read_only: bool = False) -> AsyncEn
         get_db_url(settings, read_only),
         echo=settings.db_echo,
         pool_pre_ping=True,
-        connect_args={"server_settings": {"application_name": settings.db_app_name}},
+        connect_args={"server_settings": {"application_name": settings.db_app_name, "search_path": SCHEMA}},
     )
 
 

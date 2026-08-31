@@ -33,6 +33,12 @@ a migration tool (alembic) or a startup script. Data lives in the named volume
 `postgres-data-local`, so **it survives `docker compose down` / `up`** (use `docker compose down -v`
 to wipe it).
 
+Everything lives in the `boarding_pass` schema rather than in `public`. The ORM metadata carries
+the schema, so SQLAlchemy emits fully qualified table names and nothing depends on the
+`search_path` being right; the connection sets `search_path` as well, so hand written SQL and
+`psql` sessions land in the right place too. The name is defined once, in
+`boarding_pass_service/models.py`.
+
 Two tables: `boarding_passes` (one row per parsed pass, UUID id, `parsed_at`, passenger name and the
 raw BCBP payload) and `boarding_pass_legs` (one row per leg). Legs are a separate table because the
 `airline_code` filter has to match *any* leg of a pass.

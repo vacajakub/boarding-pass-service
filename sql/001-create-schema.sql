@@ -1,6 +1,9 @@
 BEGIN;
 
--- gen_random_uuid() lives in pgcrypto on older postgres, core since 13
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+DROP SCHEMA IF EXISTS boarding_pass CASCADE;
+
+CREATE SCHEMA boarding_pass AUTHORIZATION boarding_pass;
+
+-- gen_random_uuid() is in pg_catalog since postgres 13, so no extension is needed for it
 
 COMMIT;

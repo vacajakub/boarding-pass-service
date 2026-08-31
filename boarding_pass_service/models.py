@@ -2,13 +2,17 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import BigInteger, ForeignKey, Index, Integer, String, func
+from sqlalchemy import BigInteger, ForeignKey, Index, Integer, MetaData, String, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+# single source of truth for the schema name, shared with the search_path in app_state
+SCHEMA = "boarding_pass"
+
 
 class Base(DeclarativeBase):
-    pass
+    # every table is emitted fully qualified, so nothing depends on the search_path being right
+    metadata = MetaData(schema=SCHEMA)
 
 
 class BoardingPass(Base):
@@ -34,7 +38,7 @@ class BoardingPassLeg(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     boarding_pass_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("boarding_passes.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey(f"{SCHEMA}.boarding_passes.id", ondelete="CASCADE"), nullable=False
     )
     leg_index: Mapped[int] = mapped_column(Integer, nullable=False)
 

@@ -12,7 +12,7 @@ from boarding_pass_service.bcbp_utils import (
     boarding_pass_from_decoded,
     decode_barcode,
     decoded_from_model,
-    extract_first_pdf417,
+    extract_payloads,
     is_pdf,
     to_decoded_bcbp,
 )
@@ -46,8 +46,9 @@ async def parse_from_file(request: Request, file: UploadFile) -> ParseBoardingPa
     try:
         # rendering the pages and reading the barcode is CPU bound and blocking,
         # so it goes to the thread pool instead of stalling the event loop
+        # Also this would be better suited for async task queue for big files
         payload = await run_in_threadpool(
-            extract_first_pdf417, data, settings.pdf_render_scale, settings.pdf_render_scale_retry
+            extract_payloads, data, settings.pdf_render_scale, settings.pdf_render_scale_retry
         )
         bcbp = decode_barcode(payload)
     except BarcodeNotFoundError as e:

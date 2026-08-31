@@ -5,6 +5,7 @@ from sqlalchemy import text
 from starlette.testclient import TestClient
 
 from boarding_pass_service.main import app
+from boarding_pass_service.models import SCHEMA
 from boarding_pass_service.schemas import Location
 
 # locations resolved locally, so the suite does not depend on the availability of the public API
@@ -37,7 +38,7 @@ def clean_db(test_app):
 
     async def truncate():
         async with app.state.session_master() as session:
-            await session.execute(text("TRUNCATE boarding_passes, boarding_pass_legs"))
+            await session.execute(text(f"TRUNCATE {SCHEMA}.boarding_passes, {SCHEMA}.boarding_pass_legs"))
             await session.commit()
 
     test_app.portal.call(truncate)

@@ -21,6 +21,7 @@ class LocationsClient:
       * fail the parse request with a 502 here,
       * or store the codes only and backfill the names later from an async job / periodic worker
         (that also lets us keep a persistent airports table instead of this in-process cache).
+        and can update if the airport name or any data changes over time.
     """
 
     def __init__(self, url: str, client: httpx.AsyncClient, cache_ttl_seconds: int = 86400):

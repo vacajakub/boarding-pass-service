@@ -47,7 +47,8 @@ def read_pdf417_payloads(pdf_data: bytes, scale: float) -> List[str]:
     try:
         for page_number, page in enumerate(pdf, 1):
             image = page.render(scale=scale).to_pil()
-            # we care only about PDF417, restricting the formats also keeps the reader fast
+            # we care only about PDF417, restricting the formats also keeps the reader fast (by requirements)
+            # in prod we might also take Aztec etc. if we wanted to support boarding passes from other sources
             barcodes = zxingcpp.read_barcodes(image, formats=zxingcpp.BarcodeFormat.PDF417)
             for barcode in barcodes:
                 text = barcode.text or (barcode.bytes or b"").decode("latin-1")
@@ -60,8 +61,13 @@ def read_pdf417_payloads(pdf_data: bytes, scale: float) -> List[str]:
     return payloads
 
 
-def extract_first_pdf417(pdf_data: bytes, scale: float, retry_scale: Optional[float] = None) -> str:
-    """All pages are scanned, but only the first barcode found is used."""
+def extract_payloads(pdf_data: bytes, scale: float, retry_scale: Optional[float] = None) -> str:
+    """All pages are scanned, but currently only the first barcode found is used."""
+    # Requirement specified that the parse-from-file endpoint returns only 1 decoded bcbp,
+    # so we do not return a list of barcodes here.
+    # If the requirement changes, this function can be changed to return a list of payloads instead.
+    # Also, if we really want the first one, we can break after we find the first one,
+    # but for now we read all pages and all barcodes, and log if there are multiple.
     payloads = read_pdf417_payloads(pdf_data, scale)
 
     if not payloads and retry_scale and retry_scale > scale:

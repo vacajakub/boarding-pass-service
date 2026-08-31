@@ -11,7 +11,7 @@ from boarding_pass_service.bcbp_utils import (
     cabin_class_for,
     decode_barcode,
     decoded_from_model,
-    extract_first_pdf417,
+    extract_payloads,
     is_pdf,
     normalize_number,
     to_decoded_bcbp,
@@ -24,7 +24,7 @@ from boarding_pass_service.schemas import CabinClass, Location
 
 @pytest.fixture(scope="module")
 def payload() -> str:
-    return extract_first_pdf417(sample_pdf_bytes(), 3.0, 5.0)
+    return extract_payloads(sample_pdf_bytes(), 3.0, 5.0)
 
 
 def test_is_pdf():
@@ -53,7 +53,7 @@ def test_extract_first_pdf417_without_barcode():
         empty_pdf = buffer.getvalue()
 
     with pytest.raises(BarcodeNotFoundError):
-        extract_first_pdf417(empty_pdf, 2.0, None)
+        extract_payloads(empty_pdf, 2.0, None)
 
 
 def test_decode_barcode(payload):
