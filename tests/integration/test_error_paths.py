@@ -1,9 +1,4 @@
-"""The failure branches of the handlers.
-
-These lean on dependency_overrides - the handlers take the settings, the session factory and the
-locations client through Depends, so a broken collaborator can be swapped in without touching
-app.state or reaching into the running engines.
-"""
+"""The failure branches of the handlers, driven by swapping in broken collaborators."""
 
 import pytest
 from sqlalchemy.exc import OperationalError

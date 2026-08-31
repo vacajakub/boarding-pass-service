@@ -13,17 +13,15 @@ logger = logging.getLogger("boarding-pass-service.internal")
 @router.get("/readiness", response_model=str)
 async def readiness(db: SessionSlave) -> str:
     try:
-        if await check_db(db):
-            return "I'm ready!"
-        raise HTTPException(status_code=412, detail="Not Ready")
-    except HTTPException:
-        raise
+        await check_db(db)
     except Exception as e:
         logger.error("Server not ready: %s", e)
         raise HTTPException(status_code=412, detail="Not Ready") from e
 
+    return "I'm ready!"
+
 
 @router.get("/liveness", response_model=str)
 async def liveness() -> str:
-    # simply returns 200 if server is running
+    # deliberately does not touch the database - a db blip must not get healthy pods restarted
     return "I'm alive!"

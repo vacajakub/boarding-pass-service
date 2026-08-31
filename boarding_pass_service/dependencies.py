@@ -6,14 +6,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from boarding_pass_service.locations import LocationsClient
 
-# Everything is still built once in AppState at startup; these only hand it to the handlers.
+# Everything is built once in AppState at startup; these only hand it to the handlers, which also
+# makes it overridable in tests.
 #
-# Note what is injected: the session *factory*, never an open AsyncSession. The usual
-# `async with session() as s: yield s` dependency checks a connection out of the pool before the
-# handler body runs and holds it until the response is done - on the parse endpoint that would mean
-# holding a connection through the pdf render (~370 ms) and the locations call, to do ~12 ms of
-# actual work. Handing over the factory lets the DAO open the session at the moment of the query
-# instead, so a connection is held only while it is used.
+# The session *factory* is injected, never an open AsyncSession: the usual
+# `async with session() as s: yield s` dependency would hold a pooled connection for the whole
+# request, and on the parse endpoint that is ~370 ms of rendering to do a ~12 ms insert.
 
 
 def get_settings(request: Request) -> BaseSettings:
@@ -21,12 +19,10 @@ def get_settings(request: Request) -> BaseSettings:
 
 
 def get_session_master(request: Request) -> async_sessionmaker:
-    """Writes go to the master."""
     return request.app.state.session_master
 
 
 def get_session_slave(request: Request) -> async_sessionmaker:
-    """Reads go to the slave."""
     return request.app.state.session_slave
 
 

@@ -13,15 +13,10 @@ logger = logging.getLogger("boarding-pass-service.locations")
 class LocationsClient:
     """Resolves IATA codes into airport/city/country names via the public locations API.
 
-    Lookups are best effort. When the API is slow, down or does not know a code, the location is
-    returned with only the ``code`` filled in, so that parsing a boarding pass never fails because
-    of a third party outage.
-
-    Alternatives, if fully enriched data mattered more than availability:
-      * fail the parse request with a 502 here,
-      * or store the codes only and backfill the names later from an async job / periodic worker
-        (that also lets us keep a persistent airports table instead of this in-process cache).
-        and can update if the airport name or any data changes over time.
+    Best effort: a slow, failing or unaware API yields a Location with only the ``code`` set, so a
+    third party outage never fails the parse. If enriched data mattered more than availability we
+    would either fail with a 502 here, or store codes only and backfill the names from a job -
+    which would also pick up airports whose details change over time.
     """
 
     def __init__(self, url: str, client: httpx.AsyncClient, cache_ttl_seconds: int = 86400):

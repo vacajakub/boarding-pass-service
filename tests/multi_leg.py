@@ -1,11 +1,8 @@
-"""A two leg boarding pass, for the cases the sample PDFs cannot reach.
+"""A two leg boarding pass - a through checked connection, one barcode covering KSC-PRG-LHR.
 
-Both sample PDFs carry single leg passes (the return journey is a second pass, not a second leg),
-and multi leg barcodes copied from the implementation guide are notoriously mis-transcribed - the
-conditional section lengths drift and every field after them decodes into garbage. Encoding it with
-the same library that decodes it keeps the fixture honest.
-
-A real multi leg pass is a through checked connection: one check-in, one barcode, KSC-PRG-LHR.
+Both sample PDFs are single leg (a return journey is a second pass, not a second leg). The payload
+is encoded rather than pasted because multi leg strings from the implementation guide are routinely
+mis-transcribed: the conditional section lengths drift and every later field decodes into garbage.
 """
 
 from datetime import datetime, timezone

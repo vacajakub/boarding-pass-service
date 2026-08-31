@@ -1,13 +1,8 @@
 """Suite-wide guard: no test may talk to anything outside this machine.
 
-The service calls a public locations API on the parse path. A test that reaches it for real would
-make the pipeline fail whenever that API is slow, down, rate limiting us or simply unreachable from
-the build agent - and it would be testing their service rather than ours. Every locations test
-therefore feeds a canned response through httpx.MockTransport (unit) or overrides the client
-outright (integration), and this guard makes that structural instead of a convention someone has to
-remember.
-
-Only the database is allowed through, since the integration tests need a real postgres.
+The parse path calls a public locations API, and a test that reached it for real would go red
+whenever that API is slow, down or firewalled off the build agent. Locations are mocked everywhere;
+this makes that structural rather than a convention. Only the database is let through.
 """
 
 import os

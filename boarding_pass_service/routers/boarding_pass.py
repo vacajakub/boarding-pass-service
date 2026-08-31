@@ -49,8 +49,7 @@ async def parse_from_file(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file format, expected a PDF")
 
     try:
-        # rendering the pages and reading the barcode is CPU bound and blocking,
-        # so it goes to the thread pool instead of stalling the event loop
+        # rendering and barcode reading is CPU bound, so it must not run on the event loop
         # Also this would be better suited for async task queue for big files
         payload = await run_in_threadpool(
             extract_payloads, data, settings.pdf_render_scale, settings.pdf_render_scale_retry
@@ -64,8 +63,6 @@ async def parse_from_file(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Barcode does not contain valid BCBP data"
         ) from e
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error("Error while parsing boarding pass: %s", e)
         raise HTTPException(
@@ -77,8 +74,8 @@ async def parse_from_file(
     decoded = to_decoded_bcbp(bcbp, locations)
 
     try:
-        # the session is opened here, not at the start of the request, so the connection is not
-        # held through the pdf parsing and the locations lookup above
+        # opened here rather than at the start of the request, so no connection is held
+        # across the parsing and the locations lookup above
         await insert_boarding_pass(db, boarding_pass_from_decoded(decoded, payload))
     except Exception as e:
         logger.error("Error while storing boarding pass: %s", e)
@@ -97,7 +94,6 @@ async def get_boarding_passes(
     passenger_name: Optional[str] = Query(None, description="Case-insensitive substring match on the passenger name"),
     airline_code: Optional[str] = Query(None, description="Exact match on airline code for any leg, e.g. FR"),
 ) -> BoardingPassListResponse:
-    # reads go to the slave
     items, total = await list_boarding_passes(db, limit, offset, passenger_name, airline_code)
 
     return BoardingPassListResponse(

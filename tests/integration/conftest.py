@@ -1,5 +1,3 @@
-from os import environ
-
 import pytest
 from sqlalchemy import text
 from starlette.testclient import TestClient
@@ -9,7 +7,6 @@ from boarding_pass_service.main import app
 from boarding_pass_service.models import SCHEMA
 from boarding_pass_service.schemas import Location
 
-# locations resolved locally, so the suite does not depend on the availability of the public API
 FAKE_LOCATIONS = {
     "KSC": Location(code="KSC", airport_name="Košice International", city_name="Košice", country="Slovakia"),
     "PRG": Location(code="PRG", airport_name="Václav Havel Airport Prague", city_name="Prague", country="Czechia"),
@@ -27,16 +24,9 @@ class FakeLocationsClient:
 def test_app():
     # need to run inside 'with' so startup and shutdown (lifespan) events register
     with TestClient(app) as client:
-        # the handlers take their collaborators through Depends, so this is a clean swap
-        # instead of reaching into app.state and patching a method on the real client
         app.dependency_overrides[get_locations] = FakeLocationsClient
         yield client
         app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def api_url():
-    return environ.get("TEST_API_URL")
 
 
 @pytest.fixture(autouse=True)
