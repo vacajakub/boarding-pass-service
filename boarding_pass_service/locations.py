@@ -15,7 +15,7 @@ class LocationsClient:
 
     Best effort: a slow, failing or unaware API yields a Location with only the ``code`` set, so a
     third party outage never fails the parse. If enriched data mattered more than availability we
-    would either fail with a 502 here, or store codes only and backfill the names from a job -
+    would either fail with a 502 here, or store codes only and backfill the names from a (cron)job -
     which would also pick up airports whose details change over time.
     """
 
