@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, HTTPException, Query, UploadFile
 from starlette import status
 from starlette.concurrency import run_in_threadpool
 
@@ -17,6 +17,7 @@ from boarding_pass_service.bcbp_utils import (
     to_decoded_bcbp,
 )
 from boarding_pass_service.dao.crud import insert_boarding_pass, list_boarding_passes
+from boarding_pass_service.dependencies import AppSettings, Locations, SessionMaster, SessionSlave
 from boarding_pass_service.schemas import (
     BoardingPassListItem,
     BoardingPassListResponse,
@@ -28,10 +29,12 @@ logger = logging.getLogger("boarding-pass-service.boarding_pass")
 
 
 @router.post("/boarding-pass/parse-from-file", response_model=ParseBoardingPassResponse)
-async def parse_from_file(request: Request, file: UploadFile) -> ParseBoardingPassResponse:
-    app_state = request.app.state
-    settings = app_state.settings
-
+async def parse_from_file(
+    file: UploadFile,
+    settings: AppSettings,
+    locations_client: Locations,
+    db: SessionMaster,
+) -> ParseBoardingPassResponse:
     data = await file.read()
     if len(data) > settings.max_upload_size_bytes:
         raise HTTPException(
@@ -68,11 +71,13 @@ async def parse_from_file(request: Request, file: UploadFile) -> ParseBoardingPa
         ) from e
 
     # best effort enrichment, the codes of all legs are resolved in one concurrent batch
-    locations = await app_state.locations.resolve(airport_codes(bcbp))
+    locations = await locations_client.resolve(airport_codes(bcbp))
     decoded = to_decoded_bcbp(bcbp, locations)
 
     try:
-        await insert_boarding_pass(app_state.session_master, boarding_pass_from_decoded(decoded, payload))
+        # the session is opened here, not at the start of the request, so the connection is not
+        # held through the pdf parsing and the locations lookup above
+        await insert_boarding_pass(db, boarding_pass_from_decoded(decoded, payload))
     except Exception as e:
         logger.error("Error while storing boarding pass: %s", e)
         raise HTTPException(
@@ -84,16 +89,14 @@ async def parse_from_file(request: Request, file: UploadFile) -> ParseBoardingPa
 
 @router.get("/boarding-passes", response_model=BoardingPassListResponse)
 async def get_boarding_passes(
-    request: Request,
+    db: SessionSlave,
     limit: int = Query(20, ge=1, le=100, description="Page size"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     passenger_name: Optional[str] = Query(None, description="Case-insensitive substring match on the passenger name"),
     airline_code: Optional[str] = Query(None, description="Exact match on airline code for any leg, e.g. FR"),
 ) -> BoardingPassListResponse:
     # reads go to the slave
-    items, total = await list_boarding_passes(
-        request.app.state.session_slave, limit, offset, passenger_name, airline_code
-    )
+    items, total = await list_boarding_passes(db, limit, offset, passenger_name, airline_code)
 
     return BoardingPassListResponse(
         items=[

@@ -39,6 +39,18 @@ the schema, so SQLAlchemy emits fully qualified table names and nothing depends 
 `psql` sessions land in the right place too. The name is defined once, in
 `boarding_pass_service/models.py`.
 
+Handlers get the session *factory* through `Depends` (see
+`boarding_pass_service/dependencies.py`), never an already open `AsyncSession`. The usual
+session-per-request dependency checks a connection out of the pool before the handler runs and
+holds it until the response is sent; on the parse endpoint that would mean holding one through the
+PDF render (~370 ms) and the locations call to do ~12 ms of actual work. Opening the session in the
+DAO instead keeps a connection checked out only while a query runs.
+
+Pool sizes are set explicitly rather than left at the SQLAlchemy defaults, because every worker
+opens two pools and the total has to fit under the server's `max_connections`. The arithmetic is
+spelled out in `boarding_pass_service/config.py`; with the default 8 workers it comes to 80
+connections against postgres' default 100.
+
 Two tables: `boarding_passes` (one row per parsed pass, UUID id, `parsed_at`, passenger name and the
 raw BCBP payload) and `boarding_pass_legs` (one row per leg). Legs are a separate table because the
 `airline_code` filter has to match *any* leg of a pass.

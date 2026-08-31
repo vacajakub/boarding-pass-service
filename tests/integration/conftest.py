@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import text
 from starlette.testclient import TestClient
 
+from boarding_pass_service.dependencies import get_locations
 from boarding_pass_service.main import app
 from boarding_pass_service.models import SCHEMA
 from boarding_pass_service.schemas import Location
@@ -15,16 +16,22 @@ FAKE_LOCATIONS = {
 }
 
 
+class FakeLocationsClient:
+    """Stands in for the locations API, so the suite does not depend on a third party being up."""
+
+    async def resolve(self, codes):
+        return {code: FAKE_LOCATIONS.get(code, Location(code=code)) for code in codes if code}
+
+
 @pytest.fixture(scope="module")
 def test_app():
     # need to run inside 'with' so startup and shutdown (lifespan) events register
     with TestClient(app) as client:
-
-        async def fake_resolve(codes):
-            return {code: FAKE_LOCATIONS.get(code, Location(code=code)) for code in codes if code}
-
-        app.state.locations.resolve = fake_resolve
+        # the handlers take their collaborators through Depends, so this is a clean swap
+        # instead of reaching into app.state and patching a method on the real client
+        app.dependency_overrides[get_locations] = FakeLocationsClient
         yield client
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture

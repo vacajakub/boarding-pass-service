@@ -22,11 +22,15 @@ def get_db_url(settings: BaseSettings, read_only: bool = False) -> str:
 
 
 def create_db_engine(settings: BaseSettings, read_only: bool = False) -> AsyncEngine:
-    # also possible to set pool sizes, recycle etc.
     return create_async_engine(
         get_db_url(settings, read_only),
         echo=settings.db_echo,
         pool_pre_ping=True,
+        # sized deliberately, see the connection budget in config.py
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_timeout=settings.db_pool_timeout,
+        pool_recycle=settings.db_pool_recycle,
         connect_args={"server_settings": {"application_name": settings.db_app_name, "search_path": SCHEMA}},
     )
 
