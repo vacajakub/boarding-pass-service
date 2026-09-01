@@ -23,7 +23,7 @@ class LocationsClient:
         self.url = url
         self.client = client
         self.cache_ttl_seconds = cache_ttl_seconds
-        # in-process cache only, a shared cache (redis) would be the production choice
+        # in-process cache only, a shared cache (redis) would be the production choice (shared by workers)
         self._cache: Dict[str, Tuple[float, Location]] = {}
 
     async def resolve(self, codes: Iterable[str]) -> Dict[str, Location]:
