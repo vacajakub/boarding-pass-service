@@ -1,0 +1,28 @@
+# ideally managed by uv or poetry, now simple freezed requirements.txt file
+fastapi==0.141.1
+pydantic==2.13.5
+pydantic-settings==2.15.0
+starlette==0.51.0
+gunicorn==26.2.0
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+
+# db - async all the way down so the event loop is never blocked
+SQLAlchemy[asyncio]==2.0.52
+asyncpg==0.31.0
+greenlet==3.5.5
+
+# pdf rendering + barcode reading
+pypdfium2==5.13.0
+zxing-cpp==3.1.1
+pillow==12.3.0
+
+# IATA BCBP decoding (github.com/jqssun/iata-api)
+# pre-release, therefore it has to be pinned exactly or pip will not resolve it
+iata==0.0.0rc2
+
+# locations API client
+httpx==0.28.1
+
+# shared cache for the resolved airport names
+redis==8.1.0
