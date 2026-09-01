@@ -56,7 +56,12 @@ class AppState(State):
 
         # one shared client, so connections to the locations API are pooled and kept alive
         self.http_client = httpx.AsyncClient(timeout=self.settings.locations_api_timeout)
-        self.redis = Redis.from_url(self.settings.redis_url, decode_responses=True)
+        self.redis = Redis.from_url(
+            self.settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=self.settings.redis_timeout,
+            socket_timeout=self.settings.redis_timeout,
+        )
         self.locations = LocationsClient(
             self.settings.locations_api_url,
             self.http_client,

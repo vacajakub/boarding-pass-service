@@ -84,31 +84,25 @@ APP_PORT=8080 DB_PORT=9434 docker compose up -d
 
 Dev container plugin in vscode is needed.
 Open folder in vscode, then click on open in devcontainer and you are ready to go and debug. Just
-launch app (or unit tests) through launch configuration.
-
-### Run locally
-
-```sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt
-docker compose up -d db
-CONFFILE=conf/boarding-pass-service.env DB_HOST=localhost \
-  .venv/bin/python -m boarding_pass_service.main
-```
+launch app (or unit tests) through launch configuration. The devcontainer brings up postgres and
+redis alongside it, so there is nothing to start by hand.
 
 ## How to test
 
-Unit tests need neither the database nor the network:
-
-```sh
-.venv/bin/python -m pytest tests/unit -v --no-cov
-```
-
-The whole suite, unit and integration, runs against a real Postgres in docker:
+Everything, unit and integration, runs against a real Postgres in docker:
 
 ```sh
 docker compose -f test-docker-compose.yml up --build --abort-on-container-exit --exit-code-from test
 docker compose -f test-docker-compose.yml down -v
+```
+
+The unit tests on their own need neither the database nor the network, so they also run in a plain
+virtualenv:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest tests/unit -v --no-cov
 ```
 
 No test talks to anything outside the machine it runs on - the Locations API is mocked everywhere

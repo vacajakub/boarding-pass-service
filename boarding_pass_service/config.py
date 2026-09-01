@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     # shared cache for resolved airport names, so the workers do not each warm their own
     redis_url: str = "redis://redis:6379/0"
+    # a cache that does not answer quickly is worse than no cache, the lookup falls back to the API
+    redis_timeout: float = 1.0
 
     # public locations API used to resolve IATA codes into airport/city/country names
     locations_api_url: str = "https://api.skypicker.com/locations/id"

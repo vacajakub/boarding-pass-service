@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import httpx
 from redis.asyncio import Redis
@@ -33,32 +33,37 @@ class LocationsClient:
         if not wanted:
             return {}
 
-        resolved = await self._get_cached(wanted)
+        resolved, cache_available = await self._get_cached(wanted)
         missing = [code for code in wanted if code not in resolved]
 
         if missing:
             # all misses in parallel, one slow airport should not serialize the whole request
-            results = await asyncio.gather(*(self._fetch(code) for code in missing), return_exceptions=True)
+            results = await asyncio.gather(*(self._fetch_from_api(code) for code in missing), return_exceptions=True)
             for code, result in zip(missing, results):
                 if isinstance(result, Exception) or result is None:
                     logger.warning("Could not resolve location %s: %s", code, result)
                     resolved[code] = Location(code=code)
                 else:
-                    await self._store(code, result)
+                    if cache_available:
+                        await self._store(code, result)
                     resolved[code] = result
 
         return resolved
 
-    async def _get_cached(self, codes: List[str]) -> Dict[str, Location]:
-        """One MGET for the whole request rather than a round trip per code."""
+    async def _get_cached(self, codes: List[str]) -> Tuple[Dict[str, Location], bool]:
+        """One MGET for the whole request rather than a round trip per code.
+
+        Also reports whether the cache answered at all, so that a request which already found it
+        unreachable does not stall again on the writes.
+        """
         try:
             cached = await self.redis.mget([CACHE_KEY_PREFIX + code for code in codes])
         except Exception as e:
             # a cache we cannot read is a cache miss, never an error the caller has to handle
             logger.warning("Could not read locations from cache: %s", e)
-            return {}
+            return {}, False
 
-        return {code: Location.model_validate_json(raw) for code, raw in zip(codes, cached) if raw}
+        return {code: Location.model_validate_json(raw) for code, raw in zip(codes, cached) if raw}, True
 
     async def _store(self, code: str, location: Location) -> None:
         if self.cache_ttl_seconds <= 0:
@@ -70,7 +75,7 @@ class LocationsClient:
         except Exception as e:
             logger.debug("Could not cache location %s: %s", code, e)
 
-    async def _fetch(self, code: str) -> Optional[Location]:
+    async def _fetch_from_api(self, code: str) -> Optional[Location]:
         response = await self.client.get(self.url, params={"id": code})
         response.raise_for_status()
 
