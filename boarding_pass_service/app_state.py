@@ -2,6 +2,7 @@ import logging
 
 import httpx
 from pydantic_settings import BaseSettings
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from starlette.datastructures import State
 
@@ -44,6 +45,7 @@ class AppState(State):
     session_slave: async_sessionmaker
 
     http_client: httpx.AsyncClient
+    redis: Redis
     locations: LocationsClient
 
     async def setup(self):
@@ -59,13 +61,18 @@ class AppState(State):
 
         # one shared client, so connections to the locations API are pooled and kept alive
         self.http_client = httpx.AsyncClient(timeout=self.settings.locations_api_timeout)
+        self.redis = Redis.from_url(self.settings.redis_url, decode_responses=True)
         self.locations = LocationsClient(
-            self.settings.locations_api_url, self.http_client, self.settings.locations_cache_ttl_seconds
+            self.settings.locations_api_url,
+            self.http_client,
+            self.redis,
+            self.settings.locations_cache_ttl_seconds,
         )
 
         # here we could set up logging levels, etc.
 
     async def teardown(self):
         await self.http_client.aclose()
+        await self.redis.aclose()
         await self.db_master.dispose()
         await self.db_slave.dispose()

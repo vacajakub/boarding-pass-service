@@ -22,6 +22,16 @@ services:
       - POSTGRES_DB=boarding_pass
       - PGPORT=9433
 
+  redis:
+    # cache only, deliberately no volume - losing it on restart is the point of a cache
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
 # to preserve db data between builds
 volumes:
   postgres-data:

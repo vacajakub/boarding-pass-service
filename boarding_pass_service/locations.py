@@ -1,13 +1,15 @@
 import asyncio
 import logging
-import time
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 import httpx
+from redis.asyncio import Redis
 
 from boarding_pass_service.schemas import Location
 
 logger = logging.getLogger("boarding-pass-service.locations")
+
+CACHE_KEY_PREFIX = "loc:"
 
 
 class LocationsClient:
@@ -17,26 +19,24 @@ class LocationsClient:
     third party outage never fails the parse. If enriched data mattered more than availability we
     would either fail with a 502 here, or store codes only and backfill the names from a (cron)job -
     which would also pick up airports whose details change over time.
+
+    Resolved names are cached in redis, shared by all workers rather than one dict per process.
+    Redis is best effort too - if it is unreachable every lookup simply goes to the API.
     """
 
-    def __init__(self, url: str, client: httpx.AsyncClient, cache_ttl_seconds: int = 86400):
+    def __init__(self, url: str, client: httpx.AsyncClient, redis: Redis, cache_ttl_seconds: int = 86400):
         self.url = url
         self.client = client
+        self.redis = redis
         self.cache_ttl_seconds = cache_ttl_seconds
-        # in-process cache only, a shared cache (redis) would be the production choice (shared by workers)
-        self._cache: Dict[str, Tuple[float, Location]] = {}
 
     async def resolve(self, codes: Iterable[str]) -> Dict[str, Location]:
-        wanted = {code for code in codes if code}
-        resolved: Dict[str, Location] = {}
-        missing = []
+        wanted = sorted({code for code in codes if code})
+        if not wanted:
+            return {}
 
-        for code in wanted:
-            cached = self._get_cached(code)
-            if cached is not None:
-                resolved[code] = cached
-            else:
-                missing.append(code)
+        resolved = await self._get_cached(wanted)
+        missing = [code for code in wanted if code not in resolved]
 
         if missing:
             # all misses in parallel, one slow airport should not serialize the whole request
@@ -46,22 +46,31 @@ class LocationsClient:
                     logger.warning("Could not resolve location %s: %s", code, result)
                     resolved[code] = Location(code=code)
                 else:
-                    self._cache[code] = (time.monotonic(), result)
+                    await self._store(code, result)
                     resolved[code] = result
 
         return resolved
 
-    def _get_cached(self, code: str) -> Optional[Location]:
-        entry = self._cache.get(code)
-        if entry is None:
-            return None
+    async def _get_cached(self, codes: List[str]) -> Dict[str, Location]:
+        """One MGET for the whole request rather than a round trip per code."""
+        try:
+            cached = await self.redis.mget([CACHE_KEY_PREFIX + code for code in codes])
+        except Exception as e:
+            # a cache we cannot read is a cache miss, never an error the caller has to handle
+            logger.warning("Could not read locations from cache: %s", e)
+            return {}
 
-        stored_at, location = entry
-        if time.monotonic() - stored_at > self.cache_ttl_seconds:
-            del self._cache[code]
-            return None
+        return {code: Location.model_validate_json(raw) for code, raw in zip(codes, cached) if raw}
 
-        return location
+    async def _store(self, code: str, location: Location) -> None:
+        if self.cache_ttl_seconds <= 0:
+            return
+
+        try:
+            # redis expires the key itself, no bookkeeping on our side
+            await self.redis.set(CACHE_KEY_PREFIX + code, location.model_dump_json(), ex=self.cache_ttl_seconds)
+        except Exception as e:
+            logger.warning("Could not cache location %s: %s", code, e)
 
     async def _fetch(self, code: str) -> Optional[Location]:
         response = await self.client.get(self.url, params={"id": code})

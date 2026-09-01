@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # recycle connections before a proxy or the server drops them from under us
     db_pool_recycle: int = 1800
 
+    # shared cache for resolved airport names, so the workers do not each warm their own
+    redis_url: str = "redis://redis:6379/0"
+
     # public locations API used to resolve IATA codes into airport/city/country names
     locations_api_url: str = "https://api.skypicker.com/locations/id"
     locations_api_timeout: float = 3.0

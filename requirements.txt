@@ -1,4 +1,4 @@
-# ideally pip freeze or pipfile lock or poetry, now simple requirements.txt file
+# ideally managed by uv or poetry, now simple freezed requirements.txt file
 fastapi==0.141.1
 pydantic==2.13.5
 pydantic-settings==2.15.0
@@ -23,3 +23,6 @@ iata==0.0.0rc2
 
 # locations API client
 httpx==0.28.1
+
+# shared cache for the resolved airport names
+redis==8.1.0

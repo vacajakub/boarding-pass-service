@@ -18,11 +18,22 @@ def _allowed_hosts() -> set:
 
     # whatever the database happens to be called in this environment - localhost when run against
     # the compose stack, "db" inside test-docker-compose
-    for host in (os.environ.get("DB_HOST"), _settings_db_host()):
+    for host in (os.environ.get("DB_HOST"), _settings_db_host(), _settings_redis_host()):
         if host:
             allowed.add(host)
 
     return allowed
+
+
+def _settings_redis_host():
+    try:
+        from urllib.parse import urlparse
+
+        from boarding_pass_service.config import get_settings
+
+        return urlparse(get_settings().redis_url).hostname
+    except Exception:  # pragma: no cover - only when the settings cannot be built at all
+        return None
 
 
 def _settings_db_host():

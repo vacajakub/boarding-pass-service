@@ -15,7 +15,7 @@ BCBP (Bar Coded Boarding Pass) format, so parsing it takes three steps:
 
 The barcode carries only the IATA codes of the origin and destination, so the airport, city and
 country names are looked up in the public Locations API
-(`https://api.skypicker.com/locations/id?id=PRG`).
+(`https://api.skypicker.com/locations/id?id=PRG`) and cached in Redis, shared by all workers.
 
 Written with FastAPI - async by default, request and response validation and generated OpenAPI docs
 for free. The request path is async throughout (`asyncpg` with the SQLAlchemy 2.x async ORM,
@@ -47,7 +47,8 @@ go to production.
   one two-leg pass, so for such a PDF only the outbound is kept.
 - Anything that is not a PDF is rejected with `400` before it reaches the renderer.
 - The Locations API is best effort. If it is slow, down or does not know a code, the parse still
-  returns `200` with `airport_name`, `city_name` and `country` as `null`. In production these could
+  returns `200` with `airport_name`, `city_name` and `country` as `null`. Redis is best effort too,
+  if it is unreachable every lookup simply goes to the API. In production these could
   be backfilled later from a job, which would also pick up airports whose details change.
 - Names come from the Locations API verbatim, so the country of `PRG` comes back as `Czechia`
   rather than `Czech Republic`.
@@ -58,8 +59,8 @@ go to production.
 
 ### Run in docker-compose
 
-Run in docker compose by running `docker compose up -d --build`, the app comes up on port 8000 and
-postgres on 9433.
+Run in docker compose by running `docker compose up -d --build`, the app comes up on port 8000,
+postgres on 9433 and redis alongside them.
 
 In case of changes to code, run `docker compose up -d --build` again.
 
@@ -67,6 +68,9 @@ If you want to view the logs run `docker compose logs -f`
 
 If you want to look into the database run `docker compose exec db sh` and then
 `psql "host=db port=9433 user=boarding_pass password=boarding_pass dbname=boarding_pass"`
+
+To look into the cache run `docker compose exec redis redis-cli` and then for example
+`KEYS 'loc:*'` or `TTL loc:PRG`.
 
 Stop and remove by `docker compose down`, add `-v` to drop the database data as well.
 
