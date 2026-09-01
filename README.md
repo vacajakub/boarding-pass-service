@@ -97,10 +97,12 @@ docker compose -f test-docker-compose.yml down -v
 ```
 
 The unit tests on their own need neither the database nor the network, so they also run in a plain
-virtualenv:
+virtualenv. Python 3.10 or newer is required - fastapi, pydantic-settings, uvicorn and gunicorn all
+refuse to install on anything older, so pin the interpreter rather than relying on whatever
+`python3` happens to be:
 
 ```sh
-python3 -m venv .venv
+python3.10 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest tests/unit -v --no-cov
 ```
