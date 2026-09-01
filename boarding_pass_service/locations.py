@@ -13,15 +13,13 @@ CACHE_KEY_PREFIX = "loc:"
 
 
 class LocationsClient:
-    """Resolves IATA codes into airport/city/country names via the public locations API.
+    """Resolves IATA codes into airport/city/country names via the public locations API,
+    caching the results in redis.
 
-    Best effort: a slow, failing or unaware API yields a Location with only the ``code`` set, so a
-    third party outage never fails the parse. If enriched data mattered more than availability we
-    would either fail with a 502 here, or store codes only and backfill the names from a (cron)job -
-    which would also pick up airports whose details change over time.
-
-    Resolved names are cached in redis, shared by all workers rather than one dict per process.
-    Redis is best effort too - if it is unreachable every lookup simply goes to the API.
+    Best effort: a failing API or cache yields a Location with only the ``code`` set, so an outage
+    never fails the parse. If enriched data mattered more than availability we would either fail
+    with a 502 here, or store codes only and backfill the names from a (cron)job - which would
+    also pick up airports whose details change over time.
     """
 
     def __init__(self, url: str, client: httpx.AsyncClient, redis: Redis, cache_ttl_seconds: int = 86400):
@@ -67,7 +65,7 @@ class LocationsClient:
             return
 
         try:
-            # redis expires the key itself, no bookkeeping on our side
+            # redis expires the key after ttl
             await self.redis.set(CACHE_KEY_PREFIX + code, location.model_dump_json(), ex=self.cache_ttl_seconds)
         except Exception as e:
             logger.warning("Could not cache location %s: %s", code, e)
