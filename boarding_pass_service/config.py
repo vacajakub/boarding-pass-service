@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     db_app_name: str = "boarding_pass"
     db_echo: bool = False
 
+    log_level: str = "INFO"
+
     # Pooling config, we have multiple workers but currently no pgbouncer in front so be careful not to exhaust the connection budget
     db_pool_size: int = 3
     db_max_overflow: int = 2

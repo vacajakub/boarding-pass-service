@@ -15,7 +15,7 @@ async def readiness(db: SessionSlave) -> str:
     try:
         await check_db(db)
     except Exception as e:
-        logger.error("Server not ready: %s", e)
+        logger.exception("Server not ready: %s", e)
         raise HTTPException(status_code=412, detail="Not Ready") from e
 
     return "I'm ready!"

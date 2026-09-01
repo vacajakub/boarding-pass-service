@@ -68,7 +68,7 @@ class LocationsClient:
             # redis expires the key after ttl
             await self.redis.set(CACHE_KEY_PREFIX + code, location.model_dump_json(), ex=self.cache_ttl_seconds)
         except Exception as e:
-            logger.warning("Could not cache location %s: %s", code, e)
+            logger.debug("Could not cache location %s: %s", code, e)
 
     async def _fetch(self, code: str) -> Optional[Location]:
         response = await self.client.get(self.url, params={"id": code})

@@ -64,7 +64,7 @@ async def parse_from_file(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Barcode does not contain valid BCBP data"
         ) from e
     except Exception as e:
-        logger.error("Error while parsing boarding pass: %s", e)
+        logger.exception("Error while parsing boarding pass: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to parse boarding pass"
         ) from e
@@ -76,12 +76,14 @@ async def parse_from_file(
     try:
         # opened here rather than at the start of the request, so no connection is held
         # across the parsing and the locations lookup above
-        await insert_boarding_pass(db, boarding_pass_from_decoded(decoded, payload))
+        stored = await insert_boarding_pass(db, boarding_pass_from_decoded(decoded, payload))
     except Exception as e:
-        logger.error("Error while storing boarding pass: %s", e)
+        logger.exception("Error while storing boarding pass: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to store boarding pass"
         ) from e
+
+    logger.info("Parsed boarding pass %s for %s, %s leg(s)", stored.id, decoded.passenger_name, len(decoded.legs))
 
     return ParseBoardingPassResponse(decoded_bcbp=decoded)
 

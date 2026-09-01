@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from boarding_pass_service.app_state import AppState
+from boarding_pass_service.config import get_settings
 from boarding_pass_service.routers import boarding_pass, internal
 
 tags_metadata = [
@@ -14,19 +15,35 @@ tags_metadata = [
 ]
 
 
+def configure_logging(level: str) -> None:
+    """Only our own namespace - gunicorn and uvicorn keep their own handlers and access log.
+
+    Without this the root logger sits at WARNING with no handlers, so every info() in the service
+    is dropped and the warnings that do get through carry no timestamp or level.
+    """
+    logger = logging.getLogger("boarding-pass-service")
+    logger.setLevel(level)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        logger.addHandler(handler)
+    logger.propagate = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging(get_settings().log_level)
     logger = logging.getLogger("boarding-pass-service")
+
     await app.state.setup()
     logger.info("Started")
 
     yield
 
-    logger.info("Shutting down")
-
+    logger.info("Shutting down..")
     # don't forget to close pools and clients
     await app.state.teardown()
-    logger.info("Shutdown end")
+    logger.info("Shut down")
 
 
 app = FastAPI(
