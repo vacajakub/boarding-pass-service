@@ -44,7 +44,7 @@ go to production.
 
 - Only the first PDF417 found is decoded and stored. All pages are scanned though, so the barcode
   may sit on any page of a multi-page document. A return journey is two boarding passes rather than
-  one two-leg pass, so for such a PDF only the outbound is kept.
+  one two-leg pass, so for such a PDF only the outbound is kept. This is a design choice coming from the requirements of the task.
 - Anything that is not a PDF is rejected with `400` before it reaches the renderer.
 - The Locations API is best effort. If it is slow, down or does not know a code, the parse still
   returns `200` with `airport_name`, `city_name` and `country` as `null`. Redis is best effort too,
